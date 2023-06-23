@@ -1,20 +1,17 @@
 use std::rc::Rc;
 use std::cmp::Ordering;
 use std::cell::RefCell;
-use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
+use ordered_float::OrderedFloat;
 
 type BidsMap = Rc<RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>>;
 type AsksMap = Rc<RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>>;
 
 enum RestingOrderType {
-    Bid(RestingOrder),
-    Ask(RestingOrder),
-}
-
-enum OrderbookSide {
-    Bid(f64),
-    Ask(f64)
+    BidOrder(RestingOrder),
+    AskOrder(RestingOrder),
+    BidPrice(f64),
+    AskPrice(f64)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -36,7 +33,7 @@ impl Orderbook {
     fn insert_order (&mut self, order: RestingOrderType) {
 
         match order {
-            RestingOrderType::Bid(bid) => {
+            RestingOrderType::BidOrder(bid) => {
                 let price = OrderedFloat(bid.price);
                 self.last_update_time = bid.ts; 
 
@@ -45,7 +42,7 @@ impl Orderbook {
                     .insert(price, bid);
             }
 
-            RestingOrderType::Ask(ask) => {
+            RestingOrderType::AskOrder(ask) => {
                 let price = OrderedFloat(ask.price);
                 self.last_update_time = ask.ts; 
 
@@ -53,6 +50,8 @@ impl Orderbook {
                     .borrow_mut()
                     .insert(price, ask);
             }
+
+            _ => todo!()
         }
     }
     // Returns all asks
@@ -95,10 +94,10 @@ impl Orderbook {
     }
     // Checks to see if your trade size can be filled in full at a specific price
     // ToDo: Determine what should happen at equal
-    fn safety_check_size (&self, price: OrderbookSide, size: f64) -> bool {
+    fn safety_check_size (&self, price: RestingOrderType, size: f64) -> bool {
 
         match price {
-            OrderbookSide::Bid(bid) => {
+            RestingOrderType::BidPrice(bid) => {
                 let check_price = OrderedFloat(bid);
                 let check_size = self.bids
                     .borrow()
@@ -114,9 +113,10 @@ impl Orderbook {
                     Ordering::Equal => true,
                     Ordering::Less => true
                 }
+
             }
 
-            OrderbookSide::Ask(ask) => {
+            RestingOrderType::AskPrice(ask) => {
                 let check_price = OrderedFloat(ask);
                 let check_size = self.asks 
                     .borrow()
@@ -133,6 +133,8 @@ impl Orderbook {
                     Ordering::Less => true
                 }
             }
+
+            _ => todo!()
         }
     }
 }

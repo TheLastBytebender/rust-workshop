@@ -1,20 +1,17 @@
 use std::rc::Rc;
 use std::cmp::Ordering;
 use std::cell::RefCell;
-use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
+use ordered_float::OrderedFloat;
 
 type BidsMap = Rc<RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>>;
 type AsksMap = Rc<RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>>;
 
 enum RestingOrderType {
-    Bid(RestingOrder),
-    Ask(RestingOrder),
-}
-
-enum OrderbookSide {
-    Bid(f64),
-    Ask(f64)
+    BidOrder(RestingOrder),
+    AskOrder(RestingOrder),
+    BidPrice(f64),
+    AskPrice(f64)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -36,7 +33,7 @@ impl Orderbook {
     fn insert_order (&mut self, order: RestingOrderType) {
 
         match order {
-            RestingOrderType::Bid(bid) => {
+            RestingOrderType::BidOrder(bid) => {
                 let price = OrderedFloat(bid.price);
                 self.last_update_time = bid.ts; 
 
@@ -45,7 +42,7 @@ impl Orderbook {
                     .insert(price, bid);
             }
 
-            RestingOrderType::Ask(ask) => {
+            RestingOrderType::AskOrder(ask) => {
                 let price = OrderedFloat(ask.price);
                 self.last_update_time = ask.ts; 
 
@@ -53,6 +50,8 @@ impl Orderbook {
                     .borrow_mut()
                     .insert(price, ask);
             }
+
+            _ => todo!()
         }
     }
     // Returns all asks
@@ -95,10 +94,10 @@ impl Orderbook {
     }
     // Checks to see if your trade size can be filled in full at a specific price
     // ToDo: Determine what should happen at equal
-    fn safety_check_size (&self, price: OrderbookSide, size: f64) -> bool {
+    fn safety_check_size (&self, price: RestingOrderType, size: f64) -> bool {
 
         match price {
-            OrderbookSide::Bid(bid) => {
+            RestingOrderType::BidPrice(bid) => {
                 let check_price = OrderedFloat(bid);
                 let check_size = self.bids
                     .borrow()
@@ -114,9 +113,10 @@ impl Orderbook {
                     Ordering::Equal => true,
                     Ordering::Less => true
                 }
+
             }
 
-            OrderbookSide::Ask(ask) => {
+            RestingOrderType::AskPrice(ask) => {
                 let check_price = OrderedFloat(ask);
                 let check_size = self.asks 
                     .borrow()
@@ -133,6 +133,8 @@ impl Orderbook {
                     Ordering::Less => true
                 }
             }
+
+            _ => todo!()
         }
     }
 }
@@ -162,8 +164,8 @@ mod tests {
             ts: 1_000_100
         };
 
-        orderbook.insert_order(RestingOrderType::Bid(resting_order_bid));
-        orderbook.insert_order(RestingOrderType::Ask(resting_order_ask));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
 
         assert_eq!(orderbook.asks.borrow().len(), 1);
         assert_eq!(orderbook.bids.borrow().len(), 1);
@@ -191,8 +193,8 @@ mod tests {
             ts: 1_000_100
         };
 
-        orderbook.insert_order(RestingOrderType::Ask(resting_order_ask_1));
-        orderbook.insert_order(RestingOrderType::Ask(resting_order_ask_2));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
 
         let ask = orderbook.get_ask();
 
@@ -220,12 +222,25 @@ mod tests {
             ts: 1_000_100
         };
 
-        orderbook.insert_order(RestingOrderType::Bid(resting_order_bid_1));
-        orderbook.insert_order(RestingOrderType::Bid(resting_order_bid_2));
+        let resting_order_bid_3 = RestingOrder {
+            price: 11.0,
+            size: 10.0,
+            ts: 1_000_200
+        };
+
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
 
         let bid = orderbook.get_bid();
 
         assert_eq!(bid, RestingOrder { price: 10.0, size: 5.0, ts: 1_000_000});
+
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_3));
+
+        let bid = orderbook.get_bid();
+
+        assert_eq!(bid, RestingOrder { price: 11.0, size: 10.0, ts: 1_000_200});
+
     }
 
     #[test]
@@ -249,8 +264,8 @@ mod tests {
             ts: 1_000_100
         };
 
-        orderbook.insert_order(RestingOrderType::Bid(resting_order_bid_1));
-        orderbook.insert_order(RestingOrderType::Bid(resting_order_bid_2));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
 
         let bids = orderbook.get_bids();
         let should_be_bids = orderbook.bids;
@@ -279,8 +294,8 @@ mod tests {
             ts: 1_000_100
         };
 
-        orderbook.insert_order(RestingOrderType::Ask(resting_order_ask_1));
-        orderbook.insert_order(RestingOrderType::Ask(resting_order_ask_2));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
 
         let asks = orderbook.get_asks();
         let should_be_asks = orderbook.asks;
@@ -309,15 +324,15 @@ mod tests {
             ts: 1_000_200
         };
 
-        orderbook.insert_order(RestingOrderType::Bid(resting_order_bid));
-        orderbook.insert_order(RestingOrderType::Ask(resting_order_ask));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
         // Bids Block
-        assert_eq!(orderbook.safety_check_size(OrderbookSide::Bid(10.0), 110.0), false);
-        assert_eq!(orderbook.safety_check_size(OrderbookSide::Bid(10.0), 95.0), true);
-        assert_eq!(orderbook.safety_check_size(OrderbookSide::Bid(10.0), 100.0), true);
+        assert_eq!(orderbook.safety_check_size(RestingOrderType::BidPrice(10.0), 110.0), false);
+        assert_eq!(orderbook.safety_check_size(RestingOrderType::BidPrice(10.0), 95.0), true);
+        assert_eq!(orderbook.safety_check_size(RestingOrderType::BidPrice(10.0), 100.0), true);
         // Asks Block
-        assert_eq!(orderbook.safety_check_size(OrderbookSide::Ask(11.0), 11.0), false);
-        assert_eq!(orderbook.safety_check_size(OrderbookSide::Ask(11.0), 9.0), true);
-        assert_eq!(orderbook.safety_check_size(OrderbookSide::Ask(11.0), 10.0), true);
+        assert_eq!(orderbook.safety_check_size(RestingOrderType::AskPrice(11.0), 11.0), false);
+        assert_eq!(orderbook.safety_check_size(RestingOrderType::AskPrice(11.0), 9.0), true);
+        assert_eq!(orderbook.safety_check_size(RestingOrderType::AskPrice(11.0), 10.0), true);
     }
 }
