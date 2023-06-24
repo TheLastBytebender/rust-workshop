@@ -92,6 +92,55 @@ impl Orderbook {
 
         binding
     }
+    // Calculates the current orderbook skew
+    fn get_ordebook_skew(&self) -> f64 {
+
+        let buy_side_depth: f64 = self
+            .bids
+            .borrow()
+            .values()
+            .map(|order| order.size)
+            .sum();
+
+        let sell_side_depth: f64 = self
+            .asks
+            .borrow()
+            .values()
+            .map(|order| order.size)
+            .sum();
+
+        let value = buy_side_depth.ln() - sell_side_depth.ln();
+
+        value
+    }
+    // Gets orderbook mid price
+    fn get_mid_price(&self) -> f64 {
+        let bid_price = self
+            .get_bid()
+            .price;
+
+        let ask_price = self
+            .get_ask()
+            .price;
+
+        let mid_price = (bid_price + ask_price) / 2.0;
+
+        mid_price
+    }
+    // Gets orderbook spread
+    fn get_orderbook_spread(&self) -> f64 {
+        let bid_price = self
+            .get_bid()
+            .price;
+
+        let ask_price = self
+            .get_ask()
+            .price;
+
+        let spread = ask_price - bid_price;
+
+        spread
+    }
     // Checks to see if your trade size can be filled in full at a specific price
     // ToDo: Determine what should happen at equal
     fn safety_check_size (&self, price: RestingOrderType, size: f64) -> bool {
@@ -137,11 +186,17 @@ impl Orderbook {
         }
     }
     // Safety Check
-    fn safety_check_() {
+    fn safety_check_spread() {
+        // Goal of this function will check the spread to see if it is too volaility
+        // If so stop trading until things calm down
 
         todo!();
     }
 }
+
+/*
+TEST ARE HERE
+*/
 
 #[cfg(test)]
 mod tests {
@@ -338,5 +393,121 @@ mod tests {
         assert_eq!(orderbook.safety_check_size(RestingOrderType::AskPrice(11.0), 11.0), false);
         assert_eq!(orderbook.safety_check_size(RestingOrderType::AskPrice(11.0), 9.0), true);
         assert_eq!(orderbook.safety_check_size(RestingOrderType::AskPrice(11.0), 10.0), true);
+    }
+
+    #[test]
+    fn test_get_mid_price_orderbook() {
+
+        let mut orderbook = Orderbook {
+            asks: Rc::new(RefCell::new(BTreeMap::new())),
+            bids: Rc::new(RefCell::new(BTreeMap::new())),
+            last_update_time: 0,
+        };
+
+        let resting_order_ask = RestingOrder {
+            price: 60.0,
+            size: 10.0,
+            ts: 1_000_000
+        };
+
+        let resting_order_bid = RestingOrder {
+            price: 50.0,
+            size: 100.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_ask_2 = RestingOrder {
+            price: 61.0,
+            size: 10.0,
+            ts: 1_000_000
+        };
+
+        let resting_order_bid_2 = RestingOrder {
+            price: 45.0,
+            size: 100.0,
+            ts: 1_000_200
+        };
+
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
+
+        let mid_price = orderbook.get_mid_price();
+
+        assert_eq!(mid_price, 55.0);
+    }
+
+    #[test]
+    fn test_get_ordebook_skew_orderbook() {
+
+        let mut orderbook = Orderbook {
+            asks: Rc::new(RefCell::new(BTreeMap::new())),
+            bids: Rc::new(RefCell::new(BTreeMap::new())),
+            last_update_time: 0,
+        };
+
+        let resting_order_ask_2 = RestingOrder {
+            price: 65.0,
+            size: 10.0,
+            ts: 1_000_000
+        };
+
+        let resting_order_ask = RestingOrder {
+            price: 60.0,
+            size: 10.0,
+            ts: 1_000_000
+        };
+
+        let resting_order_bid = RestingOrder {
+            price: 50.0,
+            size: 100.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_bid_2 = RestingOrder {
+            price: 45.0,
+            size: 100.0,
+            ts: 1_000_200
+        };
+
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
+
+        let anw = ((100 + 100) as f64).ln() - ((10 + 10) as f64).ln();
+
+        assert_eq!(anw, orderbook.get_ordebook_skew());
+    }
+
+    #[test]
+    fn test_get_orderbook_spread_orderbook() {
+
+        let mut orderbook = Orderbook {
+            asks: Rc::new(RefCell::new(BTreeMap::new())),
+            bids: Rc::new(RefCell::new(BTreeMap::new())),
+            last_update_time: 0,
+        };
+
+        let resting_order_ask = RestingOrder {
+            price: 60.0,
+            size: 10.0,
+            ts: 1_000_000
+        };
+
+        let resting_order_bid = RestingOrder {
+            price: 50.0,
+            size: 100.0,
+            ts: 1_000_200
+        };
+
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
+
+        let mid_price = orderbook.get_orderbook_spread();
+        let anw = 60.0 - 50.0;
+
+        assert_eq!(anw, mid_price);
     }
 }

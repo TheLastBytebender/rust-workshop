@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Order {
 	id: String,
 	price: f64,
@@ -11,6 +11,7 @@ struct Order {
 	updated_time: i32,
 }
 
+#[derive(Clone)]
 enum OrderPosition {
 	BuySide(Order),
 	SellSide(Order),
@@ -18,6 +19,7 @@ enum OrderPosition {
 	SellSideId(String)
 }
 
+#[derive(Clone)]
 enum OrderStatus {
 	Pending(OrderPosition),
 	Active(OrderPosition),
@@ -88,12 +90,46 @@ impl Oms {
 					OrderPosition::BuySideId(order_id) => {
 						let value = self.buy_side_orders_active
 							.get(&order_id)
-							.expect("Failed to get Active buy side order");
+							.expect("Failed to get active buy side order");
 
 						value
 					}
+
+					OrderPosition::SellSideId(order_id) => {
+						let value = self.sell_side_orders_active
+							.get(&order_id)
+							.expect("Failed to get active sell side order");
+
+						value
+					}
+
+					_ => todo!()
 				}
 			}
+
+			OrderStatus::Pending(order_position) => {
+				match order_position {
+					OrderPosition::BuySideId(order_id) => {
+						let value = self.buy_side_orders_pending
+							.get(&order_id)
+							.expect("Failed to get pending buy side order");
+
+						value
+					}
+
+					OrderPosition::SellSideId(order_id) => {
+						let value = self.sell_side_orders_pending
+							.get(&order_id)
+							.expect("Failed to get pending sell side order");
+
+						value
+					}
+
+					_ => todo!()
+				}
+			}
+
+			OrderStatus::Cancelled(_order_id) => todo!()
 		}
 	}
 }
@@ -151,5 +187,55 @@ mod tests {
 
     	assert_eq!(oms.buy_side_orders_active.len(), 1);
     	assert_eq!(oms.sell_side_orders_active.len(), 1);
+    }
+
+    #[test]
+    fn test_get_order_oms() {
+    	let mut oms = Oms::new();
+
+    	let buy_order_active = 
+			Order {
+				id: String::from("1234"),
+				price: 12.5,
+				qty: 2.5,
+				position_idx: 1,
+				created_time: 1_000_000,
+				updated_time: 1_000_100
+			};
+
+    	let sell_order_pending = 
+			Order {
+				id: String::from("12345"),
+				price: 12.5,
+				qty: 2.5,
+				position_idx: 2,
+				created_time: 1_000_000,
+				updated_time: 1_000_100
+			};
+
+		let sell_order_active = 
+			Order {
+				id: String::from("1234554"),
+				price: 12.5,
+				qty: 2.5,
+				position_idx: 2,
+				created_time: 1_000_000,
+				updated_time: 1_000_100
+			};
+
+		// I dont like all these clones
+		// Will be fixing
+    	oms.add_order(OrderStatus::Active(OrderPosition::BuySide(buy_order_active.clone())));
+    	oms.add_order(OrderStatus::Pending(OrderPosition::SellSide(sell_order_pending.clone())));
+    	oms.add_order(OrderStatus::Active(OrderPosition::SellSide(sell_order_active.clone())));
+
+    	let test1 = oms.get_order(OrderStatus::Active(OrderPosition::BuySideId(buy_order_active.id.clone())));
+    	let test2 = oms.get_order(OrderStatus::Pending(OrderPosition::SellSideId(sell_order_pending.id.clone())));
+    	let test3 = oms.get_order(OrderStatus::Active(OrderPosition::SellSideId(sell_order_active.id.clone())));
+
+
+    	assert_eq!(test1.clone() , buy_order_active);
+    	assert_eq!(test2.clone(), sell_order_pending);
+    	assert_eq!(test3.clone(), sell_order_active);
     }
 }
