@@ -3,14 +3,9 @@ use std::collections::HashMap;
 
 type OrderMap = RefCell<HashMap<String, Order>>;
 
-#[derive(Debug, PartialEq, Clone)]
-struct Order {
-	id: String,
-	price: f64,
-	qty: f64,
-	position_idx: u8,
-	created_time: i32,
-	updated_time: i32,
+enum AltReturn<'a> {
+	SomeOrder((&'a OrderMap, Order)),
+	SomeOrderId((&'a OrderMap, String))
 }
 
 #[derive(Clone)]
@@ -24,8 +19,17 @@ enum OrderPosition {
 #[derive(Clone)]
 enum OrderStatus {
 	Pending(OrderPosition),
-	Active(OrderPosition),
-	Cancelled(OrderPosition)
+	Active(OrderPosition)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct Order {
+	id: String,
+	price: f64,
+	qty: f64,
+	position_idx: u8,
+	created_time: i32,
+	updated_time: i32,
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,184 +51,84 @@ impl Oms {
 		}
 	}
 	
-	pub fn handle_mapping(&mut self, order_value: OrderStatus) -> &OrderMap {
+	pub fn handle_mapping(&mut self, order_value: OrderStatus) -> AltReturn {
 
 		match order_value {
+
 			OrderStatus::Active(order_position) => {
+
 				match order_position {
-					OrderPosition::BuySide(_) => {
-						&self.buy_side_orders_active
+					OrderPosition::BuySide(order) => {
+						AltReturn::SomeOrder((&self.buy_side_orders_active, order))
 					}
 
-					OrderPosition::SellSide(_) => {
-						&self.sell_side_orders_active
+					OrderPosition::SellSide(order) => {
+						AltReturn::SomeOrder((&self.sell_side_orders_active, order))
 					}
 
-					_ => todo!()
+					OrderPosition::BuySideId(order) => {
+						AltReturn::SomeOrderId((&self.buy_side_orders_active, order))
+					}
+
+					OrderPosition::SellSideId(order) => {
+						AltReturn::SomeOrderId((&self.sell_side_orders_active, order))
+					}
 				}
 			}
 
 			OrderStatus::Pending(order_position) => {
+
 				match order_position {
-					OrderPosition::BuySide(_) => {
-						&self.buy_side_orders_pending
+					OrderPosition::BuySide(order) => {
+						AltReturn::SomeOrder((&self.buy_side_orders_pending, order))
 					}
 
-					OrderPosition::SellSide(_) => {
-						&self.sell_side_orders_pending
+					OrderPosition::SellSide(order) => {
+						AltReturn::SomeOrder((&self.sell_side_orders_pending, order))
 					}
 
-					_ => todo!()
+					OrderPosition::BuySideId(order) => {
+						AltReturn::SomeOrderId((&self.buy_side_orders_pending, order))
+					}
+
+					OrderPosition::SellSideId(order) => {
+						AltReturn::SomeOrderId((&self.sell_side_orders_pending, order))
+					}
 				}
 			}
-
-			_ => todo!()
 		}
 	}
 	
-	pub fn add_order (&mut self, order: OrderStatus) {
-		match order {
-			OrderStatus::Active(order_position) => {
-				match order_position {
-					OrderPosition::BuySide(order) => {
-						self.buy_side_orders_active
-							.borrow_mut()
-							.insert(order.id.clone(), order);
-					}
+	pub fn add_order (&mut self, order_value: OrderStatus) {
 
-					OrderPosition::SellSide(order) => {
-						self.sell_side_orders_active
-							.borrow_mut()
-							.insert(order.id.clone(), order);
-					}
+		let AltReturn::SomeOrder((map, order)) = self.handle_mapping(order_value) else { todo!() };
 
-					_ => todo!()
-				}
-			}
-
-			OrderStatus::Pending(order_position) => {
-				match order_position {
-					OrderPosition::BuySide(order) => {
-						self.buy_side_orders_pending
-							.borrow_mut()
-							.insert(order.id.clone(), order);
-					}
-
-					OrderPosition::SellSide(order) => {
-						self.sell_side_orders_pending
-							.borrow_mut()
-							.insert(order.id.clone(), order);
-					}
-
-					_ => todo!()
-				}
-			}
-
-			OrderStatus::Cancelled(_) => todo!()
-		}
+		map
+			.borrow_mut()
+			.insert(order.id.clone(), order);
 	}
 
-	pub fn delete_order(&mut self, order_id:OrderStatus) {
-		match order_id {
-			OrderStatus::Active(order_position) => {
-				match order_position {
-					OrderPosition::BuySide(order_id) => {
-						_ = self.buy_side_orders_active
-							.borrow_mut()
-							.remove(&order_id.id);
-					}
+	pub fn delete_order(&mut self, order_value: OrderStatus) {
 
-					OrderPosition::SellSide(order_id) => {
-						_ = self.sell_side_orders_active
-							.borrow_mut()
-							.remove(&order_id.id);
-					}
+		let AltReturn::SomeOrderId((map, order_id)) = self.handle_mapping(order_value) else { todo!() };
 
-					_ => todo!()
-				}
-			}
-
-			OrderStatus::Pending(order_position) => {
-				match order_position {
-					OrderPosition::BuySide(order_id) => {
-						_ = self.buy_side_orders_pending
-							.borrow_mut()
-							.remove(&order_id.id);
-					}
-
-					OrderPosition::SellSide(order_id) => {
-						_ = self.sell_side_orders_pending
-							.borrow_mut()
-							.remove(&order_id.id);
-					}
-
-					_ => todo!()
-				}
-			},
-			OrderStatus::Cancelled(_) => todo!()
-		}
+		map 
+			.borrow_mut()
+			.remove(&order_id);
 	}
 
-	pub fn get_order(&self, order: OrderStatus) -> Order {
-		match order {
-			OrderStatus::Active(order_position) => {
-				match order_position {
-					OrderPosition::BuySideId(order_id) => {
-						let value = self.buy_side_orders_active
-							.borrow();
+	pub fn get_order(&mut self, order_value: OrderStatus) -> Order {
 
-						let anw = value
-							.get(&order_id)
-							.expect("Failed to get active buy side order");
+		let AltReturn::SomeOrderId((map, order_id)) = self.handle_mapping(order_value) else { todo!() };
 
-						anw.clone()
-					}
+		let binding_map = map.borrow();
 
-					OrderPosition::SellSideId(order_id) => {
-						let value = self.sell_side_orders_active
-							.borrow();
+		let anw = binding_map
+			.get(&order_id)
+			.expect("Failed to get order");
 
-						let anw = value
-							.get(&order_id)
-							.expect("Failed to get active sell side order");
+		anw.clone()
 
-						anw.clone()
-					}
-
-					_ => todo!()
-				}
-			}
-
-			OrderStatus::Pending(order_position) => {
-				match order_position {
-					OrderPosition::BuySideId(order_id) => {
-						let value = self.buy_side_orders_pending
-							.borrow();
-
-						let anw = value
-							.get(&order_id)
-							.expect("Failed to get pending buy side order");
-
-						anw.clone()
-					}
-
-					OrderPosition::SellSideId(order_id) => {
-						let value = self.sell_side_orders_pending
-							.borrow();
-
-						let anw = value
-							.get(&order_id)
-							.expect("Failed to get pending sell side order");
-
-						anw.clone()
-					}
-
-					_ => todo!()
-				}
-			}
-
-			_ => todo!()
-		}
 	}
 	// Will return current inventory delta
 	pub fn get_inventory_delta(&self) -> f64 {
@@ -342,8 +246,8 @@ mod tests {
     	assert_eq!(oms.buy_side_orders_active.borrow().len(), 1);
     	assert_eq!(oms.sell_side_orders_active.borrow().len(), 1);
 
-    	oms.delete_order(buy_order_active);
-    	oms.delete_order(sell_order_active);
+    	oms.delete_order(OrderStatus::Active(OrderPosition::BuySideId("1234".to_string())));
+    	oms.delete_order(OrderStatus::Active(OrderPosition::SellSideId("12345".to_string())));
 
     	assert_eq!(oms.buy_side_orders_active.borrow().len(), 0);
     	assert_eq!(oms.sell_side_orders_active.borrow().len(), 0);
