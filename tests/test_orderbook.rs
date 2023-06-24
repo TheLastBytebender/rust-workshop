@@ -80,17 +80,17 @@ impl Orderbook {
     }
     // Returns all asks
     fn get_asks(&self) -> BidsMap {
-        let binding = self.asks
+        let asks = self.asks
             .clone();
 
-        binding
+        asks
     }
     // Returns all bids
     fn get_bids(&self) -> AsksMap {
-        let binding = self.bids
+        let bids = self.bids
             .clone();
 
-        binding
+        bids
     }
     // Calculates the current orderbook skew
     fn get_ordebook_skew(&self) -> f64 {
@@ -143,6 +143,8 @@ impl Orderbook {
     }
     // Checks to see if your trade size can be filled in full at a specific price
     // ToDo: Determine what should happen at equal
+    // true = Trade is safe 
+    // false = Trade is unsafe
     fn safety_check_size (&self, price: RestingOrderType, size: f64) -> bool {
 
         match price {
@@ -186,8 +188,8 @@ impl Orderbook {
         }
     }
     // Safety Check
-    fn safety_check_spread() {
-        // Goal of this function will check the spread to see if it is too volaility
+    fn _safety_check_spread() {
+        // Goal of this function will check the spread to see if it is too volatile
         // If so stop trading until things calm down
 
         todo!();

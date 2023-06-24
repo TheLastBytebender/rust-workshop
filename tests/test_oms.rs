@@ -45,6 +45,8 @@ impl Oms {
 		}
 	}
 
+	//pub fn handle_mapping()
+
 	pub fn add_order (&mut self, order: OrderStatus) {
 		match order {
 			OrderStatus::Active(order_position) => {
@@ -79,6 +81,43 @@ impl Oms {
 				}
 			}
 
+			OrderStatus::Cancelled(_) => todo!()
+		}
+	}
+
+	pub fn delete_order(&mut self, order_id:OrderStatus) {
+		match order_id {
+			OrderStatus::Active(order_position) => {
+				match order_position {
+					OrderPosition::BuySide(order_id) => {
+						_ = self.buy_side_orders_active
+							.remove(&order_id.id);
+					}
+
+					OrderPosition::SellSide(order_id) => {
+						_ = self.sell_side_orders_active
+							.remove(&order_id.id);
+					}
+
+					_ => todo!()
+				}
+			}
+
+			OrderStatus::Pending(order_position) => {
+				match order_position {
+					OrderPosition::BuySide(order_id) => {
+						_ = self.buy_side_orders_pending
+							.remove(&order_id.id);
+					}
+
+					OrderPosition::SellSide(order_id) => {
+						_ = self.sell_side_orders_pending
+							.remove(&order_id.id);
+					}
+
+					_ => todo!()
+				}
+			},
 			OrderStatus::Cancelled(_) => todo!()
 		}
 	}
@@ -129,8 +168,31 @@ impl Oms {
 				}
 			}
 
-			OrderStatus::Cancelled(_order_id) => todo!()
+			_ => todo!()
 		}
+	}
+	// Will return current inventory delta
+	pub fn get_inventory_delta(&self) -> f64 {
+
+		let bid_delta: f64 = self.buy_side_orders_active
+			.clone()
+			.values()
+			.map(|order| order.qty)
+			.sum();
+
+		println!("{:?}", bid_delta);
+
+		let ask_delta: f64 = self.sell_side_orders_active
+			.clone()
+			.values()
+			.map(|order| order.qty)
+			.sum();
+
+		println!("{:?}", ask_delta);
+
+		let value = bid_delta - ask_delta;
+
+		value
 	}
 }
 
@@ -190,6 +252,50 @@ mod tests {
     }
 
     #[test]
+    fn test_delete_order_oms() {
+    	let mut oms = Oms::new();
+
+    	let buy_order_active = OrderStatus::Active (
+    		OrderPosition::BuySide (
+    			Order {
+    				id: String::from("1234"),
+    				price: 12.5,
+    				qty: 2.5,
+    				position_idx: 1,
+    				created_time: 1_000_000,
+    				updated_time: 1_000_100
+    			}
+    		)
+    	);
+
+    	let sell_order_active = OrderStatus::Active (
+    		OrderPosition::SellSide (
+    			Order {
+    				id: String::from("12345"),
+    				price: 12.5,
+    				qty: 2.5,
+    				position_idx: 2,
+    				created_time: 1_000_000,
+    				updated_time: 1_000_100
+    			}
+    		)
+    	);
+
+    	oms.add_order(buy_order_active.clone());
+    	oms.add_order(sell_order_active.clone());
+
+    	assert_eq!(oms.buy_side_orders_active.len(), 1);
+    	assert_eq!(oms.sell_side_orders_active.len(), 1);
+
+    	oms.delete_order(buy_order_active);
+    	oms.delete_order(sell_order_active);
+
+    	assert_eq!(oms.buy_side_orders_active.len(), 0);
+    	assert_eq!(oms.sell_side_orders_active.len(), 0);
+
+    }
+
+    #[test]
     fn test_get_order_oms() {
     	let mut oms = Oms::new();
 
@@ -237,5 +343,74 @@ mod tests {
     	assert_eq!(test1.clone() , buy_order_active);
     	assert_eq!(test2.clone(), sell_order_pending);
     	assert_eq!(test3.clone(), sell_order_active);
+    }
+
+    #[test]
+    fn test_get_inventory_delta_oms() {
+
+    	let mut oms = Oms::new();
+
+    	let sell_order_active = OrderStatus::Active (
+    		OrderPosition::SellSide (
+    			Order {
+    				id: String::from("1232432445"),
+    				price: 12.5,
+    				qty: 3.0,
+    				position_idx: 2,
+    				created_time: 1_000_000,
+    				updated_time: 1_000_100
+    			}
+    		)
+    	);
+
+    	let sell_order_active_2 = OrderStatus::Active (
+    		OrderPosition::SellSide (
+    			Order {
+    				id: String::from("123423445"),
+    				price: 12.5,
+    				qty: 10.0,
+    				position_idx: 2,
+    				created_time: 1_000_000,
+    				updated_time: 1_000_100
+    			}
+    		)
+    	);
+
+    	let buy_order_active = OrderStatus::Active (
+    		OrderPosition::BuySide (
+    			Order {
+    				id: String::from("123234244"),
+    				price: 12.5,
+    				qty: 5.0,
+    				position_idx: 1,
+    				created_time: 1_000_000,
+    				updated_time: 1_000_100
+    			}
+    		)
+    	);
+
+    	let buy_order_active_2 = OrderStatus::Active (
+    		OrderPosition::BuySide (
+    			Order {
+    				id: String::from("12342342345"),
+    				price: 12.5,
+    				qty: 10.0,
+    				position_idx: 1,
+    				created_time: 1_000_000,
+    				updated_time: 1_000_100
+    			}
+    		)
+    	);
+
+    	oms.add_order(sell_order_active);
+    	oms.add_order(sell_order_active_2);
+    	oms.add_order(buy_order_active);
+    	oms.add_order(buy_order_active_2);
+
+    	let anw = 15.0 - 13.0;
+    	let result = oms.get_inventory_delta();
+
+    	assert_eq!(anw, result);
+
     }
 }
