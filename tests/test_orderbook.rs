@@ -54,13 +54,6 @@ impl Orderbook {
             _ => todo!()
         }
     }
-    // Returns all asks
-    fn get_asks(&self) -> BidsMap {
-        let binding = self.asks
-            .clone();
-
-        binding
-    }
     // Returns ask closest to mid-price
     fn get_ask(&self) -> RestingOrder {
 
@@ -73,13 +66,6 @@ impl Orderbook {
 
         RestingOrder { price: value.price, size: value.size,  ts: value.ts }
     }
-    // Returns all bids
-    fn get_bids(&self) -> AsksMap {
-        let binding = self.bids
-            .clone();
-
-        binding
-    }
     // Returns bid closest to mid-price
     fn get_bid(&self) -> RestingOrder {
 
@@ -91,6 +77,20 @@ impl Orderbook {
             .expect("Failed to get last key value");
 
         RestingOrder { price: value.price, size: value.size, ts: value.ts }
+    }
+    // Returns all asks
+    fn get_asks(&self) -> BidsMap {
+        let binding = self.asks
+            .clone();
+
+        binding
+    }
+    // Returns all bids
+    fn get_bids(&self) -> AsksMap {
+        let binding = self.bids
+            .clone();
+
+        binding
     }
     // Checks to see if your trade size can be filled in full at a specific price
     // ToDo: Determine what should happen at equal
@@ -113,7 +113,6 @@ impl Orderbook {
                     Ordering::Equal => true,
                     Ordering::Less => true
                 }
-
             }
 
             RestingOrderType::AskPrice(ask) => {
@@ -136,6 +135,11 @@ impl Orderbook {
 
             _ => todo!()
         }
+    }
+    // Safety Check
+    fn safety_check_() {
+
+        todo!();
     }
 }
 
