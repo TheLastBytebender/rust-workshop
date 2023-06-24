@@ -1,5 +1,7 @@
-
+use std::cell::RefCell;
 use std::collections::HashMap;
+
+type OrderMap = RefCell<HashMap<String, Order>>;
 
 #[derive(Debug, PartialEq, Clone)]
 struct Order {
@@ -28,36 +30,71 @@ enum OrderStatus {
 
 #[derive(Debug, PartialEq)]
 struct Oms {
-	sell_side_orders_active: HashMap<String, Order>,
-	sell_side_orders_pending: HashMap<String, Order>,
-	buy_side_orders_active: HashMap<String, Order>,
-	buy_side_orders_pending: HashMap<String, Order>
+	sell_side_orders_active: OrderMap,
+	sell_side_orders_pending: OrderMap,
+	buy_side_orders_active: OrderMap,
+	buy_side_orders_pending: OrderMap
 }
 
 impl Oms {
 
 	pub fn new() -> Oms {
 		Oms { 
-			sell_side_orders_active: HashMap::new(),
-			sell_side_orders_pending: HashMap::new(),
-			buy_side_orders_active: HashMap::new(),
-			buy_side_orders_pending: HashMap::new()
+			sell_side_orders_active: RefCell::new(HashMap::new()),
+			sell_side_orders_pending: RefCell::new(HashMap::new()),
+			buy_side_orders_active: RefCell::new(HashMap::new()),
+			buy_side_orders_pending: RefCell::new(HashMap::new())
 		}
 	}
+	
+	pub fn handle_mapping(&mut self, order_value: OrderStatus) -> &OrderMap {
 
-	//pub fn handle_mapping()
+		match order_value {
+			OrderStatus::Active(order_position) => {
+				match order_position {
+					OrderPosition::BuySide(_) => {
+						&self.buy_side_orders_active
+					}
 
+					OrderPosition::SellSide(_) => {
+						&self.sell_side_orders_active
+					}
+
+					_ => todo!()
+				}
+			}
+
+			OrderStatus::Pending(order_position) => {
+				match order_position {
+					OrderPosition::BuySide(_) => {
+						&self.buy_side_orders_pending
+					}
+
+					OrderPosition::SellSide(_) => {
+						&self.sell_side_orders_pending
+					}
+
+					_ => todo!()
+				}
+			}
+
+			_ => todo!()
+		}
+	}
+	
 	pub fn add_order (&mut self, order: OrderStatus) {
 		match order {
 			OrderStatus::Active(order_position) => {
 				match order_position {
 					OrderPosition::BuySide(order) => {
 						self.buy_side_orders_active
+							.borrow_mut()
 							.insert(order.id.clone(), order);
 					}
 
 					OrderPosition::SellSide(order) => {
 						self.sell_side_orders_active
+							.borrow_mut()
 							.insert(order.id.clone(), order);
 					}
 
@@ -69,11 +106,13 @@ impl Oms {
 				match order_position {
 					OrderPosition::BuySide(order) => {
 						self.buy_side_orders_pending
+							.borrow_mut()
 							.insert(order.id.clone(), order);
 					}
 
 					OrderPosition::SellSide(order) => {
 						self.sell_side_orders_pending
+							.borrow_mut()
 							.insert(order.id.clone(), order);
 					}
 
@@ -91,11 +130,13 @@ impl Oms {
 				match order_position {
 					OrderPosition::BuySide(order_id) => {
 						_ = self.buy_side_orders_active
+							.borrow_mut()
 							.remove(&order_id.id);
 					}
 
 					OrderPosition::SellSide(order_id) => {
 						_ = self.sell_side_orders_active
+							.borrow_mut()
 							.remove(&order_id.id);
 					}
 
@@ -107,11 +148,13 @@ impl Oms {
 				match order_position {
 					OrderPosition::BuySide(order_id) => {
 						_ = self.buy_side_orders_pending
+							.borrow_mut()
 							.remove(&order_id.id);
 					}
 
 					OrderPosition::SellSide(order_id) => {
 						_ = self.sell_side_orders_pending
+							.borrow_mut()
 							.remove(&order_id.id);
 					}
 
@@ -122,24 +165,30 @@ impl Oms {
 		}
 	}
 
-	pub fn get_order(&self, order: OrderStatus) -> &Order {
+	pub fn get_order(&self, order: OrderStatus) -> Order {
 		match order {
 			OrderStatus::Active(order_position) => {
 				match order_position {
 					OrderPosition::BuySideId(order_id) => {
 						let value = self.buy_side_orders_active
+							.borrow();
+
+						let anw = value
 							.get(&order_id)
 							.expect("Failed to get active buy side order");
 
-						value
+						anw.clone()
 					}
 
 					OrderPosition::SellSideId(order_id) => {
 						let value = self.sell_side_orders_active
+							.borrow();
+
+						let anw = value
 							.get(&order_id)
 							.expect("Failed to get active sell side order");
 
-						value
+						anw.clone()
 					}
 
 					_ => todo!()
@@ -150,18 +199,24 @@ impl Oms {
 				match order_position {
 					OrderPosition::BuySideId(order_id) => {
 						let value = self.buy_side_orders_pending
+							.borrow();
+
+						let anw = value
 							.get(&order_id)
 							.expect("Failed to get pending buy side order");
 
-						value
+						anw.clone()
 					}
 
 					OrderPosition::SellSideId(order_id) => {
 						let value = self.sell_side_orders_pending
+							.borrow();
+
+						let anw = value
 							.get(&order_id)
 							.expect("Failed to get pending sell side order");
 
-						value
+						anw.clone()
 					}
 
 					_ => todo!()
@@ -175,7 +230,7 @@ impl Oms {
 	pub fn get_inventory_delta(&self) -> f64 {
 
 		let bid_delta: f64 = self.buy_side_orders_active
-			.clone()
+			.borrow()
 			.values()
 			.map(|order| order.qty)
 			.sum();
@@ -183,7 +238,7 @@ impl Oms {
 		println!("{:?}", bid_delta);
 
 		let ask_delta: f64 = self.sell_side_orders_active
-			.clone()
+			.borrow()
 			.values()
 			.map(|order| order.qty)
 			.sum();
@@ -205,10 +260,10 @@ mod tests {
     	let oms = Oms::new();
 
     	let oms_dummy = Oms {
-    		sell_side_orders_active: HashMap::new(),
-			sell_side_orders_pending: HashMap::new(),
-			buy_side_orders_active: HashMap::new(),
-			buy_side_orders_pending: HashMap::new()
+    		sell_side_orders_active: RefCell::new(HashMap::new()),
+			sell_side_orders_pending: RefCell::new(HashMap::new()),
+			buy_side_orders_active: RefCell::new(HashMap::new()),
+			buy_side_orders_pending: RefCell::new(HashMap::new())
     	};
 
     	assert_eq!(oms_dummy, oms)
@@ -247,8 +302,8 @@ mod tests {
     	oms.add_order(buy_order_active);
     	oms.add_order(sell_order_active);
 
-    	assert_eq!(oms.buy_side_orders_active.len(), 1);
-    	assert_eq!(oms.sell_side_orders_active.len(), 1);
+    	assert_eq!(oms.buy_side_orders_active.borrow().len(), 1);
+    	assert_eq!(oms.sell_side_orders_active.borrow().len(), 1);
     }
 
     #[test]
@@ -284,14 +339,14 @@ mod tests {
     	oms.add_order(buy_order_active.clone());
     	oms.add_order(sell_order_active.clone());
 
-    	assert_eq!(oms.buy_side_orders_active.len(), 1);
-    	assert_eq!(oms.sell_side_orders_active.len(), 1);
+    	assert_eq!(oms.buy_side_orders_active.borrow().len(), 1);
+    	assert_eq!(oms.sell_side_orders_active.borrow().len(), 1);
 
     	oms.delete_order(buy_order_active);
     	oms.delete_order(sell_order_active);
 
-    	assert_eq!(oms.buy_side_orders_active.len(), 0);
-    	assert_eq!(oms.sell_side_orders_active.len(), 0);
+    	assert_eq!(oms.buy_side_orders_active.borrow().len(), 0);
+    	assert_eq!(oms.sell_side_orders_active.borrow().len(), 0);
 
     }
 
