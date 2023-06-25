@@ -1,3 +1,4 @@
+use rand::Rng;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -66,12 +67,12 @@ impl Oms {
 						AltReturn::SomeOrder((&self.sell_side_orders_active, order))
 					}
 
-					OrderPosition::BuySideId(order) => {
-						AltReturn::SomeOrderId((&self.buy_side_orders_active, order))
+					OrderPosition::BuySideId(order_id) => {
+						AltReturn::SomeOrderId((&self.buy_side_orders_active, order_id))
 					}
 
-					OrderPosition::SellSideId(order) => {
-						AltReturn::SomeOrderId((&self.sell_side_orders_active, order))
+					OrderPosition::SellSideId(order_id) => {
+						AltReturn::SomeOrderId((&self.sell_side_orders_active, order_id))
 					}
 				}
 			}
@@ -87,12 +88,12 @@ impl Oms {
 						AltReturn::SomeOrder((&self.sell_side_orders_pending, order))
 					}
 
-					OrderPosition::BuySideId(order) => {
-						AltReturn::SomeOrderId((&self.buy_side_orders_pending, order))
+					OrderPosition::BuySideId(order_id) => {
+						AltReturn::SomeOrderId((&self.buy_side_orders_pending, order_id))
 					}
 
-					OrderPosition::SellSideId(order) => {
-						AltReturn::SomeOrderId((&self.sell_side_orders_pending, order))
+					OrderPosition::SellSideId(order_id) => {
+						AltReturn::SomeOrderId((&self.sell_side_orders_pending, order_id))
 					}
 				}
 			}
@@ -101,7 +102,7 @@ impl Oms {
 	
 	pub fn add_order (&mut self, order_value: OrderStatus) {
 
-		let AltReturn::SomeOrder((map, order)) = self.handle_mapping(order_value) else { todo!() };
+		let AltReturn::SomeOrder((map, order)) = self.handle_mapping(order_value) else { panic!() };
 
 		map
 			.borrow_mut()
@@ -110,7 +111,7 @@ impl Oms {
 
 	pub fn delete_order(&mut self, order_value: OrderStatus) {
 
-		let AltReturn::SomeOrderId((map, order_id)) = self.handle_mapping(order_value) else { todo!() };
+		let AltReturn::SomeOrderId((map, order_id)) = self.handle_mapping(order_value) else { panic!() };
 
 		map 
 			.borrow_mut()
@@ -119,7 +120,7 @@ impl Oms {
 
 	pub fn get_order(&mut self, order_value: OrderStatus) -> Order {
 
-		let AltReturn::SomeOrderId((map, order_id)) = self.handle_mapping(order_value) else { todo!() };
+		let AltReturn::SomeOrderId((map, order_id)) = self.handle_mapping(order_value) else { panic!() };
 
 		let binding_map = map.borrow();
 
@@ -153,6 +154,16 @@ impl Oms {
 
 		value
 	}
+
+	pub fn get_size_to_target(&self, target_delta: f64) -> f64 {
+		
+		let current_delta = self
+			.get_inventory_delta();
+
+		let anw = (current_delta - target_delta).abs();
+
+		anw
+	}
 }
 
 #[cfg(test)]
@@ -176,16 +187,17 @@ mod tests {
     #[test]
     fn test_add_order_oms() {
     	let mut oms = Oms::new();
+    	let mut rng = rand::thread_rng();
 
     	let buy_order_active = OrderStatus::Active (
     		OrderPosition::BuySide (
     			Order {
     				id: String::from("1234"),
-    				price: 12.5,
-    				qty: 2.5,
-    				position_idx: 1,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -193,12 +205,12 @@ mod tests {
     	let sell_order_active = OrderStatus::Active (
     		OrderPosition::SellSide (
     			Order {
-    				id: String::from("12345"),
-    				price: 12.5,
-    				qty: 2.5,
-    				position_idx: 2,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				id: String::from("123465"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -213,16 +225,17 @@ mod tests {
     #[test]
     fn test_delete_order_oms() {
     	let mut oms = Oms::new();
+    	let mut rng = rand::thread_rng();
 
     	let buy_order_active = OrderStatus::Active (
     		OrderPosition::BuySide (
     			Order {
     				id: String::from("1234"),
-    				price: 12.5,
-    				qty: 2.5,
-    				position_idx: 1,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -231,11 +244,11 @@ mod tests {
     		OrderPosition::SellSide (
     			Order {
     				id: String::from("12345"),
-    				price: 12.5,
-    				qty: 2.5,
-    				position_idx: 2,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -257,35 +270,36 @@ mod tests {
     #[test]
     fn test_get_order_oms() {
     	let mut oms = Oms::new();
+    	let mut rng = rand::thread_rng();
 
     	let buy_order_active = 
 			Order {
 				id: String::from("1234"),
-				price: 12.5,
-				qty: 2.5,
-				position_idx: 1,
-				created_time: 1_000_000,
-				updated_time: 1_000_100
+				price: rng.gen::<f64>(),
+				qty: rng.gen::<f64>(),
+				position_idx: rng.gen::<u8>(),
+				created_time: rng.gen::<i32>(),
+				updated_time: rng.gen::<i32>()
 			};
 
     	let sell_order_pending = 
 			Order {
 				id: String::from("12345"),
-				price: 12.5,
-				qty: 2.5,
-				position_idx: 2,
-				created_time: 1_000_000,
-				updated_time: 1_000_100
+				price: rng.gen::<f64>(),
+				qty: rng.gen::<f64>(),
+				position_idx: rng.gen::<u8>(),
+				created_time: rng.gen::<i32>(),
+				updated_time: rng.gen::<i32>()
 			};
 
 		let sell_order_active = 
 			Order {
-				id: String::from("1234554"),
-				price: 12.5,
-				qty: 2.5,
-				position_idx: 2,
-				created_time: 1_000_000,
-				updated_time: 1_000_100
+				id: String::from("123456"),
+				price: rng.gen::<f64>(),
+				qty: rng.gen::<f64>(),
+				position_idx: rng.gen::<u8>(),
+				created_time: rng.gen::<i32>(),
+				updated_time: rng.gen::<i32>()
 			};
 
 		// I dont like all these clones
@@ -308,16 +322,17 @@ mod tests {
     fn test_get_inventory_delta_oms() {
 
     	let mut oms = Oms::new();
+    	let mut rng = rand::thread_rng();
 
     	let sell_order_active = OrderStatus::Active (
     		OrderPosition::SellSide (
     			Order {
-    				id: String::from("1232432445"),
-    				price: 12.5,
-    				qty: 3.0,
-    				position_idx: 2,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				id: String::from("1234"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -325,12 +340,12 @@ mod tests {
     	let sell_order_active_2 = OrderStatus::Active (
     		OrderPosition::SellSide (
     			Order {
-    				id: String::from("123423445"),
-    				price: 12.5,
-    				qty: 10.0,
-    				position_idx: 2,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				id: String::from("12345"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -338,12 +353,12 @@ mod tests {
     	let buy_order_active = OrderStatus::Active (
     		OrderPosition::BuySide (
     			Order {
-    				id: String::from("123234244"),
-    				price: 12.5,
-    				qty: 5.0,
-    				position_idx: 1,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				id: String::from("123456"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
@@ -351,25 +366,77 @@ mod tests {
     	let buy_order_active_2 = OrderStatus::Active (
     		OrderPosition::BuySide (
     			Order {
-    				id: String::from("12342342345"),
-    				price: 12.5,
-    				qty: 10.0,
-    				position_idx: 1,
-    				created_time: 1_000_000,
-    				updated_time: 1_000_100
+    				id: String::from("1234567"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
     			}
     		)
     	);
+
+    	let OrderStatus::Active(OrderPosition::BuySide(b_1)) = &buy_order_active else { todo!() }; 
+    	let OrderStatus::Active(OrderPosition::BuySide(b_2)) = &buy_order_active_2 else { todo!() };
+
+    	let OrderStatus::Active(OrderPosition::SellSide(a_1)) = &sell_order_active else { todo!() };
+    	let OrderStatus::Active(OrderPosition::SellSide(a_2)) = &sell_order_active_2 else { todo!() };
+
+    	let delta = ((b_1.qty + b_2.qty) - (a_1.qty + a_2.qty)) as f64;
 
     	oms.add_order(sell_order_active);
     	oms.add_order(sell_order_active_2);
     	oms.add_order(buy_order_active);
     	oms.add_order(buy_order_active_2);
 
-    	let anw = 15.0 - 13.0;
     	let result = oms.get_inventory_delta();
 
-    	assert_eq!(anw, result);
+    	assert_eq!(delta, result);
+    }
 
+    #[test]
+    fn test_get_size_to_target() {
+
+    	let mut oms = Oms::new();
+    	let mut rng = rand::thread_rng();
+
+    	let buy_order_active = OrderStatus::Active (
+    		OrderPosition::BuySide (
+    			Order {
+    				id: String::from("1234"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
+    			}
+    		)
+    	);
+
+    	let sell_order_active = OrderStatus::Active (
+    		OrderPosition::SellSide (
+    			Order {
+    				id: String::from("12345"),
+    				price: rng.gen::<f64>(),
+    				qty: rng.gen::<f64>(),
+    				position_idx: rng.gen::<u8>(),
+    				created_time: rng.gen::<i32>(),
+    				updated_time: rng.gen::<i32>()
+    			}
+    		)
+    	);
+
+    	let OrderStatus::Active(OrderPosition::BuySide(b_1)) = &buy_order_active else { todo!() }; 
+    	let OrderStatus::Active(OrderPosition::SellSide(a_1)) = &sell_order_active else { todo!() };
+
+    	let target_delta = 0.0;
+    	let anw = ((b_1.qty - a_1.qty) - target_delta as f64).abs();
+
+    	oms.add_order(buy_order_active);
+    	oms.add_order(sell_order_active);
+
+    	let result = oms.get_size_to_target(target_delta);
+
+    	assert_eq!(anw, result);
     }
 }

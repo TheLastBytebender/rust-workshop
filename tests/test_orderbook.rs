@@ -1,12 +1,14 @@
-use std::rc::Rc;
+use rand::Rng;
 use std::cmp::Ordering;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use ordered_float::OrderedFloat;
+use std::time::{ SystemTime, UNIX_EPOCH };
 
-type BidsMap = Rc<RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>>;
-type AsksMap = Rc<RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>>;
+type BidsMap = RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>;
+type AsksMap = RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>;
 
+#[derive(Clone)]
 enum RestingOrderType {
     BidOrder(RestingOrder),
     AskOrder(RestingOrder),
@@ -18,17 +20,30 @@ enum RestingOrderType {
 struct RestingOrder {
     price: f64,
     size: f64,
-    ts: i32
+    ts: u128
 }
 
 #[derive(Clone, Debug, PartialEq)]
 struct Orderbook {
     asks: AsksMap,
     bids: BidsMap,
-    last_update_time: i32,
+    last_update_time: u128,
 }
 
 impl Orderbook {
+    fn new() -> Orderbook {
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Failed to get duration")
+            .as_millis();
+
+        Orderbook {
+            asks: RefCell::new(BTreeMap::new()),
+            bids: RefCell::new(BTreeMap::new()),
+            last_update_time: current_time
+        }
+    }
+
     // Inserts resting order into orderbook 
     fn insert_order (&mut self, order: RestingOrderType) {
 
@@ -79,16 +94,14 @@ impl Orderbook {
         RestingOrder { price: value.price, size: value.size, ts: value.ts }
     }
     // Returns all asks
-    fn get_asks(&self) -> BidsMap {
-        let asks = self.asks
-            .clone();
+    fn get_asks(&self) -> &BidsMap {
+        let asks = &self.asks;
 
         asks
     }
     // Returns all bids
-    fn get_bids(&self) -> AsksMap {
-        let bids = self.bids
-            .clone();
+    fn get_bids(&self) -> &AsksMap {
+        let bids = &self.bids;
 
         bids
     }
@@ -188,11 +201,16 @@ impl Orderbook {
         }
     }
     // Safety Check
-    fn _safety_check_spread() {
+    fn safety_check_spread(&self, max_spread: f64) -> bool {
         // Goal of this function will check the spread to see if it is too volatile
         // If so stop trading until things calm down
+        let current_spread = self.get_orderbook_spread();
 
-        todo!();
+        if current_spread > max_spread {
+            false
+        } else {
+            true
+        }
     }
 }
 
@@ -207,11 +225,7 @@ mod tests {
     #[test]
     fn test_insert_order_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
 
         let resting_order_bid = RestingOrder {
             price: 10.0,
@@ -236,100 +250,95 @@ mod tests {
     #[test]
     fn test_get_ask_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_ask_1 = RestingOrder {
-            price: 9.0,
-            size: 10.0,
-            ts: 1_000_000
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_ask_2 = RestingOrder {
-            price: 10.0,
-            size: 100.0,
-            ts: 1_000_100
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
+
+        let test_copy_1 = resting_order_ask_1.clone();
+        let test_copy_2 = resting_order_ask_2.clone();
 
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1));
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
 
         let ask = orderbook.get_ask();
 
-        assert_eq!(ask, RestingOrder { price: 9.0,  size: 10.0, ts: 1_000_000 });
+        if test_copy_1.price > test_copy_2.price {
+            assert_eq!(ask, test_copy_2);
+
+        } else {
+            assert_eq!(ask, test_copy_1)
+        }
     }
 
     #[test]
     fn test_get_bid_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_bid_1 = RestingOrder {
-            price: 10.0,
-            size: 5.0,
-            ts: 1_000_000
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_bid_2 = RestingOrder {
-            price: 9.0,
-            size: 10.0,
-            ts: 1_000_100
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
-        let resting_order_bid_3 = RestingOrder {
-            price: 11.0,
-            size: 10.0,
-            ts: 1_000_200
-        };
+        let test_copy_1 = resting_order_bid_1.clone();
+        let test_copy_2 = resting_order_bid_2.clone();
 
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1));
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
 
         let bid = orderbook.get_bid();
 
-        assert_eq!(bid, RestingOrder { price: 10.0, size: 5.0, ts: 1_000_000});
+        if test_copy_1.price > test_copy_2.price {
+            assert_eq!(bid, test_copy_1);
 
-        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_3));
-
-        let bid = orderbook.get_bid();
-
-        assert_eq!(bid, RestingOrder { price: 11.0, size: 10.0, ts: 1_000_200});
+        } else {
+            assert_eq!(bid, test_copy_2)
+        }
 
     }
 
     #[test]
     fn test_get_bids_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_bid_1 = RestingOrder {
-            price: 10.0,
-            size: 5.0,
-            ts: 1_000_000
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_bid_2 = RestingOrder {
-            price: 9.0,
-            size: 10.0,
-            ts: 1_000_100
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1));
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
 
         let bids = orderbook.get_bids();
-        let should_be_bids = orderbook.bids;
+        let should_be_bids = &orderbook.bids;
 
         assert_eq!(bids, should_be_bids);
     }
@@ -337,29 +346,26 @@ mod tests {
     #[test]
     fn test_get_asks_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_ask_1 = RestingOrder {
-            price: 9.0,
-            size: 10.0,
-            ts: 1_000_000
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_ask_2 = RestingOrder {
-            price: 10.0,
-            size: 100.0,
-            ts: 1_000_100
+            price: rng.gen::<f64>(),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1));
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
 
         let asks = orderbook.get_asks();
-        let should_be_asks = orderbook.asks;
+        let should_be_asks = &orderbook.asks;
 
         assert_eq!(asks, should_be_asks);
     }
@@ -367,11 +373,7 @@ mod tests {
     #[test]
     fn test_safety_check_size_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
 
         let resting_order_ask = RestingOrder {
             price: 11.0,
@@ -400,35 +402,42 @@ mod tests {
     #[test]
     fn test_get_mid_price_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_ask = RestingOrder {
-            price: 60.0,
+            price: rng.gen_range(50.0..100.0),
+            size: 10.0,
+            ts: 1_000_000
+        };
+
+        let resting_order_ask_2 = RestingOrder {
+            price: rng.gen_range(50.0..100.0),
             size: 10.0,
             ts: 1_000_000
         };
 
         let resting_order_bid = RestingOrder {
-            price: 50.0,
+            price: rng.gen_range(0.1..49.9),
             size: 100.0,
             ts: 1_000_200
-        };
-
-        let resting_order_ask_2 = RestingOrder {
-            price: 61.0,
-            size: 10.0,
-            ts: 1_000_000
         };
 
         let resting_order_bid_2 = RestingOrder {
-            price: 45.0,
+            price: rng.gen_range(0.1..49.9),
             size: 100.0,
             ts: 1_000_200
         };
+
+        let b1 = resting_order_bid.price;
+        let b2 = resting_order_bid_2.price;
+        let a1 = resting_order_ask.price;
+        let a2 = resting_order_ask_2.price;
+
+        let bid = f64::max(b1, b2);
+        let ask = f64::min(a1, a2);
+
+        let result = (ask + bid) / 2.0;
 
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
@@ -437,48 +446,51 @@ mod tests {
 
         let mid_price = orderbook.get_mid_price();
 
-        assert_eq!(mid_price, 55.0);
+        assert_eq!(mid_price, result);
     }
 
     #[test]
     fn test_get_ordebook_skew_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_ask_2 = RestingOrder {
-            price: 65.0,
-            size: 10.0,
-            ts: 1_000_000
+            price: rng.gen_range(50.0..100.0),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_ask = RestingOrder {
-            price: 60.0,
-            size: 10.0,
-            ts: 1_000_000
+            price: rng.gen_range(50.0..100.0),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_bid = RestingOrder {
-            price: 50.0,
-            size: 100.0,
-            ts: 1_000_200
+            price: rng.gen_range(0.1..49.9),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_bid_2 = RestingOrder {
-            price: 45.0,
-            size: 100.0,
-            ts: 1_000_200
+            price: rng.gen_range(0.1..49.9),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
+
+        let b1 = resting_order_bid.size;
+        let b2 = resting_order_bid_2.size;
+        let a1 = resting_order_ask.size;
+        let a2 = resting_order_ask_2.size;
+
 
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
 
-        let anw = ((100 + 100) as f64).ln() - ((10 + 10) as f64).ln();
+        let anw = ((b1 + b2) as f64).ln() - ((a1 + a2) as f64).ln();
 
         assert_eq!(anw, orderbook.get_ordebook_skew());
     }
@@ -486,30 +498,30 @@ mod tests {
     #[test]
     fn test_get_orderbook_spread_orderbook() {
 
-        let mut orderbook = Orderbook {
-            asks: Rc::new(RefCell::new(BTreeMap::new())),
-            bids: Rc::new(RefCell::new(BTreeMap::new())),
-            last_update_time: 0,
-        };
+        let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_ask = RestingOrder {
-            price: 60.0,
-            size: 10.0,
-            ts: 1_000_000
+            price: rng.gen_range(50.0..100.0),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
 
         let resting_order_bid = RestingOrder {
-            price: 50.0,
-            size: 100.0,
-            ts: 1_000_200
+            price: rng.gen_range(0.1..49.9),
+            size: rng.gen::<f64>(),
+            ts: rng.gen::<u128>()
         };
+
+        let b1 = resting_order_bid.price;
+        let a1 = resting_order_ask.price;
 
         orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid));
         orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask));
 
-        let mid_price = orderbook.get_orderbook_spread();
-        let anw = 60.0 - 50.0;
+        let spread = orderbook.get_orderbook_spread();
+        let anw = a1 - b1;
 
-        assert_eq!(anw, mid_price);
+        assert_eq!(anw, spread);
     }
 }
