@@ -1,6 +1,11 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+/*
 
+This module aims to create a localized order management system for 
+tracking and analyzing trading inventory
+
+*/
 type OrderMap = RefCell<HashMap<String, Order>>;
 
 enum AltReturn<'a> {
@@ -10,10 +15,10 @@ enum AltReturn<'a> {
 
 #[derive(Clone)]
 enum OrderPosition {
-	BuySide(Order),
-	SellSide(Order),
-	BuySideId(String),
-	SellSideId(String)
+	BuySide(Order), // Use when you need the order returned
+	SellSide(Order), // Use when you need the order returned
+	BuySideId(String), // Use when you need the order_id returned
+	SellSideId(String) // Use when you need the order_id returned
 }
 
 #[derive(Clone)]

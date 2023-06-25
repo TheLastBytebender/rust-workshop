@@ -166,6 +166,10 @@ impl Oms {
 	}
 }
 
+/* 
+TESTS ARE HERE
+*/
+
 #[cfg(test)]
 mod tests {
     use super::*;

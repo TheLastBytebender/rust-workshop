@@ -2,8 +2,12 @@ use std::cmp::Ordering;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use ordered_float::OrderedFloat;
-use std::time::{ SystemTime, UNIX_EPOCH };
+/*
 
+This module aims to create a localized orderbook that be used as a reference
+or data storage for trading algo or other
+
+*/
 type BidsMap = RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>;
 type AsksMap = RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>;
 
@@ -31,15 +35,11 @@ struct Orderbook {
 
 impl Orderbook {
     fn new() -> Orderbook {
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Failed to get duration")
-            .as_millis();
 
         Orderbook {
             asks: RefCell::new(BTreeMap::new()),
             bids: RefCell::new(BTreeMap::new()),
-            last_update_time: current_time
+            last_update_time: 0
         }
     }
 
@@ -201,8 +201,6 @@ impl Orderbook {
     }
     // Safety Check
     fn safety_check_spread(&self, max_spread: f64) -> bool {
-        // Goal of this function will check the spread to see if it is too volatile
-        // If so stop trading until things calm down
         let current_spread = self.get_orderbook_spread();
 
         if current_spread > max_spread {
