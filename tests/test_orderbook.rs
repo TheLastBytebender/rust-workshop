@@ -121,6 +121,44 @@ impl Orderbook {
 
         value
     }
+    // Calculates the current orderbook skew by range
+    fn get_ordebook_skew_by_range(&self, diff: &f64) -> f64 {
+        let mid_price = self.get_mid_price();
+
+        let lower_bound = OrderedFloat(mid_price - diff);
+        let upper_bound = OrderedFloat(mid_price + diff);
+
+        let a_binding = self
+            .asks
+            .borrow();
+
+        let b_binding = self
+            .bids
+            .borrow();
+
+        let a_value = a_binding
+            .range(..upper_bound);
+
+        let b_value = b_binding
+            .range(lower_bound..);
+
+        let ask_side_depth_range: f64 = a_value
+            .map(|order| order.1.size)
+            .sum();
+
+        println!("{:?}", ask_side_depth_range);
+
+        let buy_side_depth_range: f64 = b_value
+            .map(|order| order.1.size)
+            .sum();
+
+        println!("{:?}", buy_side_depth_range);
+
+        let value = buy_side_depth_range.ln() - ask_side_depth_range.ln();
+
+        value
+        
+    }
     // Gets orderbook mid price
     fn get_mid_price(&self) -> f64 {
         let bid_price = self
@@ -529,5 +567,61 @@ mod tests {
         let anw = a1 - b1;
 
         assert_eq!(anw, spread);
+    }
+
+    #[test]
+    fn test_get_ordebook_skew_by_range_orderbook() {
+
+        let mut orderbook = Orderbook::new();
+
+        let resting_order_bid_1 = RestingOrder {
+            price: 50.0,
+            size: 25.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_bid_2 = RestingOrder {
+            price: 45.0,
+            size: 30.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_bid_3 = RestingOrder {
+            price: 40.0,
+            size: 15.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_ask_1 = RestingOrder {
+            price: 60.0,
+            size: 40.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_ask_2 = RestingOrder {
+            price: 65.0,
+            size: 50.0,
+            ts: 1_000_200
+        };
+
+        let resting_order_ask_3 = RestingOrder {
+            price: 80.0,
+            size: 100.0,
+            ts: 1_000_200
+        };
+
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_3));
+
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_3));
+
+        let anw = (70.0_f64).ln() - (90.0_f64).ln();
+        let result = orderbook.get_ordebook_skew_by_range(&20.0);
+
+        assert_eq!(anw, result);
+
     }
 }
