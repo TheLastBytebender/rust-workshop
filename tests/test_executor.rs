@@ -45,7 +45,6 @@ impl Executor<'_> {
                     .send()
                     .await?;
 
-                println!("{:?}", resp);
                 let resp_object = resp
                     .json::<Value>()
                     .await?;
