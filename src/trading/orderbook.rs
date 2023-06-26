@@ -2,12 +2,7 @@ use std::cmp::Ordering;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use ordered_float::OrderedFloat;
-/*
 
-This module aims to create a localized orderbook that be used as a reference
-or data storage for trading algo or other
-
-*/
 type BidsMap = RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>;
 type AsksMap = RefCell<BTreeMap<OrderedFloat<f64>, RestingOrder>>;
 
@@ -124,6 +119,44 @@ impl Orderbook {
         let value = buy_side_depth.ln() - sell_side_depth.ln();
 
         value
+    }
+    // Calculates the current orderbook skew by range
+    fn get_ordebook_skew_by_range(&self, diff: &f64) -> f64 {
+        let mid_price = self.get_mid_price();
+
+        let lower_bound = OrderedFloat(mid_price - diff);
+        let upper_bound = OrderedFloat(mid_price + diff);
+
+        let a_binding = self
+            .asks
+            .borrow();
+
+        let b_binding = self
+            .bids
+            .borrow();
+
+        let a_value = a_binding
+            .range(..upper_bound);
+
+        let b_value = b_binding
+            .range(lower_bound..);
+
+        let ask_side_depth_range: f64 = a_value
+            .map(|order| order.1.size)
+            .sum();
+
+        println!("{:?}", ask_side_depth_range);
+
+        let buy_side_depth_range: f64 = b_value
+            .map(|order| order.1.size)
+            .sum();
+
+        println!("{:?}", buy_side_depth_range);
+
+        let value = buy_side_depth_range.ln() - ask_side_depth_range.ln();
+
+        value
+        
     }
     // Gets orderbook mid price
     fn get_mid_price(&self) -> f64 {

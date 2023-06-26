@@ -31,7 +31,6 @@ struct Orderbook {
 
 impl Orderbook {
     fn new() -> Orderbook {
-
         Orderbook {
             asks: RefCell::new(BTreeMap::new()),
             bids: RefCell::new(BTreeMap::new()),
@@ -79,7 +78,7 @@ impl Orderbook {
     // Returns bid closest to mid-price
     fn get_bid(&self) -> RestingOrder {
 
-        let binding = self.bids
+        let binding = self.bids 
             .borrow();
 
         let (_key, value) = binding
@@ -146,13 +145,9 @@ impl Orderbook {
             .map(|order| order.1.size)
             .sum();
 
-        println!("{:?}", ask_side_depth_range);
-
         let buy_side_depth_range: f64 = b_value
             .map(|order| order.1.size)
             .sum();
-
-        println!("{:?}", buy_side_depth_range);
 
         let value = buy_side_depth_range.ln() - ask_side_depth_range.ln();
 
@@ -573,55 +568,70 @@ mod tests {
     fn test_get_ordebook_skew_by_range_orderbook() {
 
         let mut orderbook = Orderbook::new();
+        let mut rng = rand::thread_rng();
 
         let resting_order_bid_1 = RestingOrder {
             price: 50.0,
-            size: 25.0,
+            size: rng.gen::<f64>(),
             ts: 1_000_200
         };
 
         let resting_order_bid_2 = RestingOrder {
             price: 45.0,
-            size: 30.0,
+            size: rng.gen::<f64>(),
             ts: 1_000_200
         };
 
         let resting_order_bid_3 = RestingOrder {
             price: 40.0,
-            size: 15.0,
+            size: rng.gen::<f64>(),
             ts: 1_000_200
         };
 
         let resting_order_ask_1 = RestingOrder {
             price: 60.0,
-            size: 40.0,
+            size: rng.gen::<f64>(),
             ts: 1_000_200
         };
 
         let resting_order_ask_2 = RestingOrder {
             price: 65.0,
-            size: 50.0,
+            size: rng.gen::<f64>(),
             ts: 1_000_200
         };
 
         let resting_order_ask_3 = RestingOrder {
             price: 80.0,
-            size: 100.0,
+            size: rng.gen::<f64>(),
             ts: 1_000_200
         };
 
-        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1));
-        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2));
-        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_3));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_1.clone()));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_2.clone()));
+        orderbook.insert_order(RestingOrderType::BidOrder(resting_order_bid_3.clone()));
 
-        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1));
-        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2));
-        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_3));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_1.clone()));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_2.clone()));
+        orderbook.insert_order(RestingOrderType::AskOrder(resting_order_ask_3.clone()));
 
-        let anw = (70.0_f64).ln() - (90.0_f64).ln();
-        let result = orderbook.get_ordebook_skew_by_range(&20.0);
+        let range_diff = 20.0;
+        let mid_price = orderbook.get_mid_price();
+
+        let sum_bid: f64 = vec![resting_order_bid_1.clone(), resting_order_bid_2.clone(), resting_order_bid_3.clone()]
+            .iter()
+            .filter(|order| order.price > (mid_price - range_diff))
+            .map(|order| order.size)
+            .sum();
+
+        let sum_ask: f64 = vec![resting_order_ask_1.clone(), resting_order_ask_2.clone(), resting_order_ask_3.clone()]
+            .iter()
+            .filter(|order| order.price < (mid_price + range_diff))
+            .map(|order| order.size)
+            .sum();
+
+        let anw = sum_bid.ln() - sum_ask.ln();
+        let result = orderbook.get_ordebook_skew_by_range(&range_diff);
 
         assert_eq!(anw, result);
-
     }
 }
