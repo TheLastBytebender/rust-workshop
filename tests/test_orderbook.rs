@@ -619,14 +619,24 @@ mod tests {
 
         let sum_bid: f64 = vec![resting_order_bid_1.clone(), resting_order_bid_2.clone(), resting_order_bid_3.clone()]
             .iter()
-            .filter(|order| order.price > (mid_price - range_diff))
-            .map(|order| order.size)
+            .filter_map(|order| {
+                if order.price > (mid_price - range_diff) {
+                    Some(order.size)
+                } else {
+                    None
+                }
+            })
             .sum();
 
         let sum_ask: f64 = vec![resting_order_ask_1.clone(), resting_order_ask_2.clone(), resting_order_ask_3.clone()]
             .iter()
-            .filter(|order| order.price < (mid_price + range_diff))
-            .map(|order| order.size)
+            .filter_map(|order| {
+                if order.price < (mid_price + range_diff) {
+                    Some(order.size)
+                } else {
+                    None
+                }
+            })
             .sum();
 
         let anw = sum_bid.ln() - sum_ask.ln();
