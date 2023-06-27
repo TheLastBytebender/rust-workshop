@@ -146,15 +146,11 @@ pub mod trading {
 				.map(|order| order.qty)
 				.sum();
 
-			println!("{:?}", bid_delta);
-
 			let ask_delta: f64 = self.sell_side_orders_active
 				.borrow()
 				.values()
 				.map(|order| order.qty)
 				.sum();
-
-			println!("{:?}", ask_delta);
 
 			let value = bid_delta - ask_delta;
 
